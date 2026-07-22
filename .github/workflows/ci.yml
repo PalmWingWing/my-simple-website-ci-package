@@ -63,7 +63,14 @@ jobs:
             --merge \
             --delete-branch \
             --admin
-
+      
+       # ⬇️ เพิ่ม step นี้ต่อจาก merge
+      - name: Trigger deploy workflow
+        if: needs.test.result == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy.yml --ref main
+        
       - name: PR failed -> email myself
         if: needs.test.result == 'failure'
         uses: dawidd6/action-send-mail@v3
