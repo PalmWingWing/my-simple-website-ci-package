@@ -3,11 +3,13 @@ name: Build and Deploy to Azure App Service
 # เดิม workflow นี้ trigger ตอน pull_request (ก่อน merge จริง)
 # แก้เป็น trigger ตอน push เข้า main แทน เพราะตอนนี้ ci.yml จะเป็นคน merge PR
 # เข้า main ให้เองหลังเทสต์ผ่าน ดังนั้น deploy ควรเกิด "หลัง merge" ไม่ใช่ "ตอนเปิด PR"
+# on:
+#   push:
+#     branches:
+#       - main
 on:
-  push:
-    branches:
-      - main
-
+  workflow_dispatch:   # <-- เปลี่ยนตรงนี้ แทนที่ push: branches: [main]
+  
 env:
   IMAGE_NAME: mysimplewebsite.azurecr.io/my-simple-website
   AZURE_WEBAPP_NAME: mysimplewebsite
