@@ -1,0 +1,28 @@
+name: Rollback Deployment
+ 
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag (commit SHA) ที่ต้องการ rollback ไป'
+        required: true
+ 
+env:
+  IMAGE_NAME: mysimplewebite.azurecr.io/mysimplewebsite
+ 
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+ 
+    steps:
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+ 
+      - name: Rollback to previous image
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          containerAppName: ${{ secrets.CONTAINER_APP_NAME }}
+          imageToDeploy: ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.image_tag }}

@@ -1,0 +1,40 @@
+name: Build and Deploy to Azure App Service
+
+# เดิม workflow นี้ trigger ตอน pull_request (ก่อน merge จริง)
+# แก้เป็น trigger ตอน push เข้า main แทน เพราะตอนนี้ ci.yml จะเป็นคน merge PR
+# เข้า main ให้เองหลังเทสต์ผ่าน ดังนั้น deploy ควรเกิด "หลัง merge" ไม่ใช่ "ตอนเปิด PR"
+on:
+  push:
+    branches:
+      - main
+
+env:
+  IMAGE_NAME: mysimplewebsite.azurecr.io/my-simple-website
+  AZURE_WEBAPP_NAME: mysimplewebsite
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure Container Registry
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and Push Docker Image
+        run: |
+          docker build -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
+          docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          images: ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}

@@ -1,0 +1,16 @@
+{
+  "name": "my-simple-website",
+  "private": true,
+  "workspaces": ["frontend"],
+  "version": "1.0.0",
+  "description": "Monorepo for my simple website",
+  "license": "MIT",
+  "scripts": {
+    "test": "playwright test",
+    "test:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0",
+    "http-server": "^14.1.1"
+  }
+}

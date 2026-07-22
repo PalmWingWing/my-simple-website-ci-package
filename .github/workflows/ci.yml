@@ -1,0 +1,94 @@
+name: CI - Integration Tests & PR Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+
+# Needed so this workflow can merge / close the PR itself
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  test:
+    name: Run integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run tests (10 integration tests)
+        run: npm test
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+  # Runs after `test`, regardless of outcome, so we can act on the result.
+  gate:
+    name: Merge or notify
+    runs-on: ubuntu-latest
+    needs: test
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: PR passed -> merge into main and close
+        if: needs.test.result == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge ${{ github.event.pull_request.number }} \
+            --merge \
+            --delete-branch \
+            --admin
+
+      - name: PR failed -> email myself
+        if: needs.test.result == 'failure'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAIL_SERVER }}
+          server_port: ${{ secrets.MAIL_PORT }}
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "❌ CI Failed: PR #${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}"
+          to: ${{ secrets.MAIL_TO }}
+          from: GitHub Actions <${{ secrets.MAIL_USERNAME }}>
+          body: |
+            การทดสอบสำหรับ PR #${{ github.event.pull_request.number }} ล้มเหลว
+
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.event.pull_request.head.ref }} -> main
+            Title: ${{ github.event.pull_request.title }}
+            Author: ${{ github.event.pull_request.user.login }}
+
+            ดู log ทั้งหมดได้ที่:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            PR นี้จะถูกปิด (close) โดยอัตโนมัติ กรุณาแก้ไขแล้วเปิด PR ใหม่
+
+      - name: PR failed -> close (do not merge)
+        if: needs.test.result == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr close ${{ github.event.pull_request.number }} \
+            --comment "❌ Automated tests failed. This PR was auto-closed. An email notification was sent. Please fix the issue and open a new PR."
